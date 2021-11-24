@@ -1,4 +1,4 @@
-package org.mifos.connector.notification.provider;
+package org.mifos.connector.notification.sms;
 
 import org.springframework.stereotype.Service;
 
