@@ -45,6 +45,11 @@ velocity:
   amount: amount
   date: date
   account: account
+  failure_type: failType
+  txnType: txnType
+  currency: currency
+
+
 
 notifications:
   local:
@@ -66,5 +71,5 @@ management:
 
 logging:
   level:
-    root: ERROR
+    root: info
 

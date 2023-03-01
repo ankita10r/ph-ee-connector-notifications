@@ -2,6 +2,7 @@ package org.mifos.connector.notification.sms.message;
 
 
 import io.camunda.zeebe.client.ZeebeClient;
+import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.mifos.connector.notification.provider.config.ProviderConfig;
@@ -48,6 +49,15 @@ public class CreateMessageRoute extends RouteBuilder {
     @Value("${velocity.account}")
     private String account;
 
+    @Value("${velocity.failure_type}")
+    private String failType;
+
+    @Value("${velocity.txnType}")
+    private String txnType;
+
+    @Value("${velocity.currency}")
+    private String currency;
+
 
 
 
@@ -61,13 +71,8 @@ public class CreateMessageRoute extends RouteBuilder {
                     .log(LoggingLevel.INFO, "Creating message")
                     .process(exchange ->{
                         StringWriter message = new StringWriter();
-                        String accountId = exchange.getProperty(ACCOUNT_ID).toString();
-                        accountId= accountId.replaceAll("\\d(?=(?:\\D*\\d){4})", "*");
-                        templateConfig.getVelocityContext().put(transactionId,exchange.getProperty(CORRELATION_ID));
-                        templateConfig.getVelocityContext().put(amount,exchange.getProperty(TRANSACTION_AMOUNT));
-                        templateConfig.getVelocityContext().put(date,exchange.getProperty(DATE));
-                        templateConfig.getVelocityContext().put(account,accountId);
-                        templateConfig.getFailureTemplate().merge(templateConfig.getVelocityContext(),message);
+                        TemplateConfig config = replaceTemplatePlaceholders(templateConfig,exchange);
+                        config.getFailureTemplate().merge(templateConfig.getVelocityContext(),message);
                         exchange.setProperty(DELIVERY_MESSAGE, message);
                         Map<String, Object> newVariables = new HashMap<>();
                         newVariables.put(MESSAGE_TO_SEND, exchange.getProperty(DELIVERY_MESSAGE).toString());
@@ -87,12 +92,8 @@ public class CreateMessageRoute extends RouteBuilder {
                 .log(LoggingLevel.INFO, "Drafting success message")
                 .process(exchange ->{
                     StringWriter message = new StringWriter();
-                    String accountId = exchange.getProperty(ACCOUNT_ID).toString();
-                    accountId= accountId.replaceAll("\\d(?=(?:\\D*\\d){4})", "*");
-                    templateConfig.getVelocityContext().put(amount,exchange.getProperty(TRANSACTION_AMOUNT));
-                    templateConfig.getVelocityContext().put(date,exchange.getProperty(DATE));
-                    templateConfig.getVelocityContext().put(account,accountId);
-                    templateConfig.getSuccessTemplate().merge(templateConfig.getVelocityContext(),message);
+                    TemplateConfig config = replaceTemplatePlaceholders(templateConfig,exchange);
+                    config.getSuccessTemplate().merge(templateConfig.getVelocityContext(),message);
                     exchange.setProperty(DELIVERY_MESSAGE, message);
                     Map<String, Object> newVariables = new HashMap<>();
                     newVariables.put(MESSAGE_TO_SEND, exchange.getProperty(DELIVERY_MESSAGE).toString());
@@ -102,16 +103,45 @@ public class CreateMessageRoute extends RouteBuilder {
                             .send()
                             .join();
                 })
-                .log(LoggingLevel.INFO, "Creating message completed with message :${exchangeProperty."+DELIVERY_MESSAGE+"}")
-        ;
-
-
-
-
-
-
+                .log(LoggingLevel.INFO, "Creating message completed with message :" +
+                        "${exchangeProperty."+DELIVERY_MESSAGE+"}");
 
     }
+
+     public TemplateConfig replaceTemplatePlaceholders(TemplateConfig templateConfig,Exchange exchange)  {
+            String accountId = exchange.getProperty(ACCOUNT_ID).toString();
+            accountId= accountId.replaceAll("\\d(?=(?:\\D*\\d){4})", "*");
+            templateConfig.getVelocityContext().put(transactionId,exchange.getProperty(CORRELATION_ID));
+            templateConfig.getVelocityContext().put(amount,exchange.getProperty(TRANSACTION_AMOUNT));
+            templateConfig.getVelocityContext().put(date,exchange.getProperty(DATE));
+            templateConfig.getVelocityContext().put(account,accountId);
+            templateConfig.getVelocityContext().put(currency,nvlCurrency(String.valueOf(exchange.getProperty(CURRENCY)),
+                    "USD"));
+            templateConfig.getVelocityContext().put(txnType,nvlTxnType(String.valueOf(exchange.getProperty(TRANSACTION_TYPE)),
+                    "transfer"));
+            templateConfig.getVelocityContext().put(failType,nvlFailType(String.valueOf(exchange.getProperty(ERROR_DESCRIPTION)),
+                    "Reason not available"));
+         return templateConfig;
+
+     }
+    public static String nvlCurrency(String value, String alternateValue) {
+        if (value.equals("null"))
+            return alternateValue;
+        else
+            return value;
     }
+    public static String nvlTxnType(String value, String alternateValue) {
+        if (value.equals("null"))
+            return alternateValue;
+        else
+            return value;
+    }
+    public static String nvlFailType(String value, String alternateValue) {
+        if (value.equals("null"))
+            return alternateValue;
+        else
+            return value;
+    }
+}
 
 
