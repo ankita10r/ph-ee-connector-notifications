@@ -7,6 +7,7 @@ import org.apache.camel.LoggingLevel;
 import org.apache.camel.builder.RouteBuilder;
 import org.mifos.connector.notification.provider.config.ProviderConfig;
 import org.mifos.connector.notification.template.TemplateConfig;
+import org.mifos.connector.notification.template.TemplateDefaultConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,33 +34,11 @@ public class CreateMessageRoute extends RouteBuilder {
 
     @Autowired
     private TemplateConfig templateConfig;
+    @Autowired
+    private TemplateDefaultConfig templateDefaultConfig;
 
     @Value("${zeebe.client.ttl}")
     private int timeToLive;
-
-    @Value("${velocity.transactionid}")
-    private String transactionId;
-
-    @Value("${velocity.amount}")
-    private String amount;
-
-    @Value("${velocity.date}")
-    private String date;
-
-    @Value("${velocity.account}")
-    private String account;
-
-    @Value("${velocity.failure_type}")
-    private String failType;
-
-    @Value("${velocity.txnType}")
-    private String txnType;
-
-    @Value("${velocity.currency}")
-    private String currency;
-
-
-
 
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -71,7 +50,7 @@ public class CreateMessageRoute extends RouteBuilder {
                     .log(LoggingLevel.INFO, "Creating message")
                     .process(exchange ->{
                         StringWriter message = new StringWriter();
-                        TemplateConfig config = replaceTemplatePlaceholders(templateConfig,exchange);
+                        TemplateConfig config = templateDefaultConfig.replaceTemplatePlaceholders(templateConfig,exchange);
                         config.getFailureTemplate().merge(templateConfig.getVelocityContext(),message);
                         exchange.setProperty(DELIVERY_MESSAGE, message);
                         Map<String, Object> newVariables = new HashMap<>();
@@ -92,7 +71,7 @@ public class CreateMessageRoute extends RouteBuilder {
                 .log(LoggingLevel.INFO, "Drafting success message")
                 .process(exchange ->{
                     StringWriter message = new StringWriter();
-                    TemplateConfig config = replaceTemplatePlaceholders(templateConfig,exchange);
+                    TemplateConfig config = templateDefaultConfig.replaceTemplatePlaceholders(templateConfig,exchange);
                     config.getSuccessTemplate().merge(templateConfig.getVelocityContext(),message);
                     exchange.setProperty(DELIVERY_MESSAGE, message);
                     Map<String, Object> newVariables = new HashMap<>();
@@ -108,40 +87,6 @@ public class CreateMessageRoute extends RouteBuilder {
 
     }
 
-     public TemplateConfig replaceTemplatePlaceholders(TemplateConfig templateConfig,Exchange exchange)  {
-            String accountId = exchange.getProperty(ACCOUNT_ID).toString();
-            accountId= accountId.replaceAll("\\d(?=(?:\\D*\\d){4})", "*");
-            templateConfig.getVelocityContext().put(transactionId,exchange.getProperty(CORRELATION_ID));
-            templateConfig.getVelocityContext().put(amount,exchange.getProperty(TRANSACTION_AMOUNT));
-            templateConfig.getVelocityContext().put(date,exchange.getProperty(DATE));
-            templateConfig.getVelocityContext().put(account,accountId);
-            templateConfig.getVelocityContext().put(currency,nvlCurrency(String.valueOf(exchange.getProperty(CURRENCY)),
-                    "USD"));
-            templateConfig.getVelocityContext().put(txnType,nvlTxnType(String.valueOf(exchange.getProperty(TRANSACTION_TYPE)),
-                    "transfer"));
-            templateConfig.getVelocityContext().put(failType,nvlFailType(String.valueOf(exchange.getProperty(ERROR_DESCRIPTION)),
-                    "Reason not available"));
-         return templateConfig;
-
-     }
-    public static String nvlCurrency(String value, String alternateValue) {
-        if (value.equals("null"))
-            return alternateValue;
-        else
-            return value;
-    }
-    public static String nvlTxnType(String value, String alternateValue) {
-        if (value.equals("null"))
-            return alternateValue;
-        else
-            return value;
-    }
-    public static String nvlFailType(String value, String alternateValue) {
-        if (value.equals("null"))
-            return alternateValue;
-        else
-            return value;
-    }
 }
 
 

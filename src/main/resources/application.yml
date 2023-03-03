@@ -48,8 +48,16 @@ velocity:
   failure_type: failType
   txnType: txnType
   currency: currency
+  defaults:
+    transactionid: "123456789"
+    amount: "100"
+    account: "1234567890"
+    failure_type: "Reason not available"
+    txnType: "transfer"
+    currency: "USD"
 
-
+server:
+  port: 8081
 
 notifications:
   local:
