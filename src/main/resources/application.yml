@@ -55,8 +55,7 @@ velocity:
     txnType: "transfer"
     currency: "USD"
 
-server:
-  port: 8081
+
 
 notifications:
   local:
